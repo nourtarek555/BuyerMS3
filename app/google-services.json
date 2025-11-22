@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "534374607965",
+    "project_id": "signallingms1",
+    "storage_bucket": "signallingms1.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:534374607965:android:d2ca742b135254406271b4",
+        "android_client_info": {
+          "package_name": "com.example.signallingms1"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBBIPR3jlQbKLD1_nn0-gwxEOrmQjQUF8U"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

@@ -1,0 +1,126 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:fillViewport="true"
+    android:padding="24dp"
+    android:background="#ECEFF1"
+    tools:context=".ProfileActivity">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:gravity="center_horizontal">
+
+        <!-- Profile Image -->
+        <ImageView
+            android:id="@+id/profileImage"
+            android:layout_width="140dp"
+            android:layout_height="140dp"
+            android:layout_marginBottom="16dp"
+            android:src="@drawable/ic_person"
+            android:scaleType="centerCrop"
+            android:background="@drawable/circle_background" />
+
+        <!-- Upload Button -->
+        <Button
+            android:id="@+id/btnUpload"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="SELECT PROFILE IMAGE"
+            android:textStyle="bold"
+            android:layout_marginBottom="24dp"
+            android:backgroundTint="#1E88E5"
+            android:textColor="#FFFFFF"
+            android:fontFamily="sans-serif-medium" />
+
+        <!-- Name -->
+        <EditText
+            android:id="@+id/etName"
+            android:layout_width="match_parent"
+            android:layout_height="52dp"
+            android:layout_marginBottom="12dp"
+            android:hint="FULL NAME"
+            android:inputType="textPersonName"
+            android:background="@drawable/edittext_bg"
+            android:textColor="#37474F"
+            android:textColorHint="#90A4AE"
+            android:fontFamily="sans-serif-medium" />
+
+        <!-- Phone -->
+        <EditText
+            android:id="@+id/etPhone"
+            android:layout_width="match_parent"
+            android:layout_height="52dp"
+            android:layout_marginBottom="12dp"
+            android:hint="PHONE NUMBER"
+            android:inputType="phone"
+            android:background="@drawable/edittext_bg"
+            android:textColor="#37474F"
+            android:textColorHint="#90A4AE"
+            android:fontFamily="sans-serif-medium" />
+
+        <!-- Email -->
+        <EditText
+            android:id="@+id/etEmail"
+            android:layout_width="match_parent"
+            android:layout_height="52dp"
+            android:layout_marginBottom="12dp"
+            android:hint="EMAIL"
+            android:enabled="false"
+            android:background="@drawable/edittext_bg"
+            android:textColor="#37474F"
+            android:textColorHint="#90A4AE"
+            android:fontFamily="sans-serif-medium" />
+
+        <!-- Address -->
+        <EditText
+            android:id="@+id/etAddress"
+            android:layout_width="match_parent"
+            android:layout_height="52dp"
+            android:layout_marginBottom="20dp"
+            android:hint="ADDRESS"
+            android:inputType="textPostalAddress"
+            android:background="@drawable/edittext_bg"
+            android:textColor="#37474F"
+            android:textColorHint="#90A4AE"
+            android:fontFamily="sans-serif-medium" />
+
+        <!-- Save Button -->
+        <Button
+            android:id="@+id/btnSave"
+            android:layout_width="match_parent"
+            android:layout_height="52dp"
+            android:text="SAVE CHANGES"
+            android:textStyle="bold"
+            android:backgroundTint="#1E88E5"
+            android:textColor="#FFFFFF"
+            android:fontFamily="sans-serif-medium"
+            android:elevation="3dp"
+            android:layout_marginBottom="16dp" />
+
+        <!-- Logout Button -->
+        <Button
+            android:id="@+id/btnLogout"
+            android:layout_width="match_parent"
+            android:layout_height="52dp"
+            android:text="LOGOUT"
+            android:textStyle="bold"
+            android:backgroundTint="#CFD8DC"
+            android:textColor="#1E88E5"
+            android:fontFamily="sans-serif-medium"
+            android:elevation="2dp"
+            android:layout_marginBottom="24dp" />
+
+        <!-- Progress Bar -->
+        <ProgressBar
+            android:id="@+id/profileProgress"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="center"
+            android:visibility="gone" />
+
+    </LinearLayout>
+</ScrollView>

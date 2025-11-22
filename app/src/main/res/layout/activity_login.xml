@@ -1,0 +1,106 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:fillViewport="true"
+    tools:context=".LoginActivity"
+    android:background="#ECEFF1"> <!-- light blue-grey background -->
+
+    <!-- Make this LinearLayout match_parent in height and center its children -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:orientation="vertical"
+        android:padding="28dp"
+        >
+
+        <!-- App Title -->
+        <TextView
+            android:id="@+id/tvTitle"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="8dp"
+            android:fontFamily="sans-serif-medium"
+            android:text="WELCOME TO THE BUYER APP"
+            android:textColor="#1E88E5"
+            android:textSize="26sp"
+            android:textStyle="bold"
+            android:textAlignment="center" />
+
+        <!-- Subtitle -->
+        <TextView
+            android:id="@+id/tvSubtitle"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="LOGIN TO CONTINUE"
+            android:textSize="16sp"
+            android:textColor="#607D8B"
+            android:layout_marginBottom="32dp"
+            android:fontFamily="sans-serif"
+            android:textAlignment="center" />
+
+        <!-- Email Input -->
+        <EditText
+            android:id="@+id/etEmail"
+            android:layout_width="match_parent"
+            android:layout_height="52dp"
+            android:hint="EMAIL"
+            android:inputType="textEmailAddress"
+            android:layout_marginBottom="16dp"
+            android:padding="12dp"
+            android:background="@drawable/edittext_bg"
+            android:textColor="#37474F"
+            android:textColorHint="#90A4AE"
+            android:fontFamily="sans-serif-medium" />
+
+        <!-- Password Input -->
+        <EditText
+            android:id="@+id/etPassword"
+            android:layout_width="match_parent"
+            android:layout_height="52dp"
+            android:hint="PASSWORD"
+            android:inputType="textPassword"
+            android:layout_marginBottom="20dp"
+            android:padding="12dp"
+            android:background="@drawable/edittext_bg"
+            android:textColor="#37474F"
+            android:textColorHint="#90A4AE"
+            android:fontFamily="sans-serif-medium" />
+
+        <!-- Login Button -->
+        <Button
+            android:id="@+id/btnLogin"
+            android:layout_width="match_parent"
+            android:layout_height="52dp"
+            android:text="LOGIN"
+            android:textStyle="bold"
+            android:backgroundTint="#1E88E5"
+            android:textColor="#FFFFFF"
+            android:layout_marginBottom="20dp"
+            android:elevation="3dp"
+            android:fontFamily="sans-serif-medium"
+            android:textAlignment="center" />
+
+        <!-- Progress Bar -->
+        <ProgressBar
+            android:id="@+id/loginProgress"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="20dp"
+            android:visibility="gone" />
+
+        <!-- Register Link -->
+        <TextView
+            android:id="@+id/tvRegister"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Don't have an account? Register"
+            android:textColor="#1E88E5"
+            android:textSize="15sp"
+            android:layout_marginTop="10dp"
+            android:fontFamily="sans-serif-medium"
+            android:textAlignment="center" />
+
+    </LinearLayout>
+</ScrollView>

@@ -1,0 +1,173 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:padding="24dp"
+    android:background="#ECEFF1"
+    android:gravity="center">
+
+    <!-- Header Title -->
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="VOIP CALL"
+        android:textSize="28sp"
+        android:textStyle="bold"
+        android:textColor="#37474F"
+        android:layout_marginTop="32dp"
+        android:layout_marginBottom="48dp"
+        android:fontFamily="sans-serif-medium" />
+
+    <!-- Connection Info Card -->
+    <androidx.cardview.widget.CardView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginBottom="32dp"
+        android:elevation="4dp"
+        app:cardCornerRadius="12dp">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:padding="20dp">
+
+            <!-- IP Address Input -->
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="IP ADDRESS"
+                android:textSize="14sp"
+                android:textStyle="bold"
+                android:textColor="#546E7A"
+                android:layout_marginBottom="8dp"
+                android:fontFamily="sans-serif-medium" />
+
+            <EditText
+                android:id="@+id/etIpAddress"
+                android:layout_width="match_parent"
+                android:layout_height="56dp"
+                android:hint="e.g., 192.168.1.100"
+                android:inputType="text"
+                android:background="@drawable/edittext_bg"
+                android:textColor="#37474F"
+                android:textColorHint="#90A4AE"
+                android:paddingStart="16dp"
+                android:paddingEnd="16dp"
+                android:layout_marginBottom="20dp"
+                android:fontFamily="sans-serif" />
+
+            <!-- Port Number Input -->
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="PORT NUMBER"
+                android:textSize="14sp"
+                android:textStyle="bold"
+                android:textColor="#546E7A"
+                android:layout_marginBottom="8dp"
+                android:fontFamily="sans-serif-medium" />
+
+            <EditText
+                android:id="@+id/etPort"
+                android:layout_width="match_parent"
+                android:layout_height="56dp"
+                android:hint="e.g., 8080"
+                android:inputType="number"
+                android:background="@drawable/edittext_bg"
+                android:textColor="#37474F"
+                android:textColorHint="#90A4AE"
+                android:paddingStart="16dp"
+                android:paddingEnd="16dp"
+                android:layout_marginBottom="20dp"
+                android:fontFamily="sans-serif" />
+
+            <!-- Connection Status -->
+            <TextView
+                android:id="@+id/tvConnectionStatus"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Status: Not Connected"
+                android:textSize="14sp"
+                android:textColor="#546E7A"
+                android:layout_gravity="center"
+                android:layout_marginBottom="16dp"
+                android:fontFamily="sans-serif-medium" />
+        </LinearLayout>
+    </androidx.cardview.widget.CardView>
+
+    <!-- Connect Button -->
+    <Button
+        android:id="@+id/btnConnect"
+        android:layout_width="match_parent"
+        android:layout_height="56dp"
+        android:text="CONNECT"
+        android:textStyle="bold"
+        android:textSize="16sp"
+        android:backgroundTint="#1E88E5"
+        android:textColor="#FFFFFF"
+        android:fontFamily="sans-serif-medium"
+        android:layout_marginBottom="16dp" />
+
+    <!-- Disconnect Button -->
+    <Button
+        android:id="@+id/btnDisconnect"
+        android:layout_width="match_parent"
+        android:layout_height="56dp"
+        android:text="DISCONNECT"
+        android:textStyle="bold"
+        android:textSize="16sp"
+        android:backgroundTint="#E57373"
+        android:textColor="#FFFFFF"
+        android:fontFamily="sans-serif-medium"
+        android:visibility="gone"
+        android:layout_marginBottom="16dp" />
+
+    <!-- Call Control Buttons (shown when connected) -->
+    <LinearLayout
+        android:id="@+id/llCallControls"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:gravity="center"
+        android:visibility="gone"
+        android:layout_marginTop="32dp">
+
+        <!-- Mute Button -->
+        <Button
+            android:id="@+id/btnMute"
+            android:layout_width="80dp"
+            android:layout_height="80dp"
+            android:text="MUTE"
+            android:textSize="12sp"
+            android:textStyle="bold"
+            android:backgroundTint="#FFA726"
+            android:textColor="#FFFFFF"
+            android:layout_marginEnd="16dp"
+            android:fontFamily="sans-serif-medium" />
+
+        <!-- End Call Button -->
+        <Button
+            android:id="@+id/btnEndCall"
+            android:layout_width="80dp"
+            android:layout_height="80dp"
+            android:text="END"
+            android:textSize="14sp"
+            android:textStyle="bold"
+            android:backgroundTint="#E57373"
+            android:textColor="#FFFFFF"
+            android:layout_marginStart="16dp"
+            android:fontFamily="sans-serif-medium" />
+    </LinearLayout>
+
+    <!-- Progress Bar -->
+    <ProgressBar
+        android:id="@+id/progressBar"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="24dp"
+        android:visibility="gone" />
+
+</LinearLayout>
