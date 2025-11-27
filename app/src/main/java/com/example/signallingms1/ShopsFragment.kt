@@ -8,10 +8,13 @@ import android.view.ViewGroup
 import android.widget.ProgressBar
 import android.widget.TextView
 import android.widget.Toast
+import androidx.core.os.bundleOf
 import androidx.fragment.app.Fragment
+import androidx.fragment.app.setFragmentResult
 import androidx.recyclerview.widget.GridLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.google.firebase.database.*
+import com.google.gson.Gson
 
 class ShopsFragment : Fragment() {
 
@@ -21,9 +24,6 @@ class ShopsFragment : Fragment() {
     private lateinit var shopAdapter: ShopAdapter
     private val shops = mutableListOf<Seller>()
     private val database: DatabaseReference = FirebaseDatabase.getInstance().getReference("Seller")
-
-    // Callback for shop click
-    var onShopSelected: ((Seller) -> Unit)? = null
 
     override fun onCreateView(
         inflater: LayoutInflater,
@@ -35,16 +35,14 @@ class ShopsFragment : Fragment() {
         super.onViewCreated(view, savedInstanceState)
 
         try {
-            // Set up callback with parent activity if it's HomeActivity
-            (activity as? HomeActivity)?.setShopSelectionCallback(this)
-
             rvShops = view.findViewById(R.id.rvShops)
             progressBar = view.findViewById(R.id.progressBar)
             tvEmpty = view.findViewById(R.id.tvEmpty)
 
-            // Initialize ShopAdapter with empty list
+            // Initialize ShopAdapter. When a shop is clicked, set a fragment result.
             shopAdapter = ShopAdapter(mutableListOf()) { seller ->
-                onShopSelected?.invoke(seller)
+                // Use the Fragment Result API to pass data back to the parent.
+                setFragmentResult("shopSelection", bundleOf("selectedSeller" to Gson().toJson(seller)))
             }
 
             if (context != null) {
@@ -52,7 +50,7 @@ class ShopsFragment : Fragment() {
                 rvShops.adapter = shopAdapter
                 rvShops.setHasFixedSize(false)
 
-                Log.d("ShopsFragment", "RecyclerView initialized with empty adapter")
+                Log.d("ShopsFragment", "RecyclerView initialized")
 
                 loadShops()
             }
@@ -66,11 +64,9 @@ class ShopsFragment : Fragment() {
         progressBar.visibility = View.VISIBLE
         tvEmpty.visibility = View.GONE
 
-        Log.d("ShopsFragment", "Loading shops from database")
-
         database.addListenerForSingleValueEvent(object : ValueEventListener {
             override fun onDataChange(snapshot: DataSnapshot) {
-                if (!isAdded || context == null || view == null) return
+                if (!isAdded) return
                 
                 progressBar.visibility = View.GONE
                 shops.clear()
@@ -78,88 +74,16 @@ class ShopsFragment : Fragment() {
                 if (!snapshot.exists()) {
                     tvEmpty.visibility = View.VISIBLE
                     rvShops.visibility = View.GONE
-                    Log.w("ShopsFragment", "No shops found")
                     return
                 }
 
                 for (sellerSnapshot in snapshot.children) {
-                    val sellerKey = sellerSnapshot.key ?: "unknown"
-
-                    // Always use manual mapping to avoid deserialization issues with Products node and string values
-                    val name = sellerSnapshot.child("name").getValue(String::class.java) ?: ""
-                    val address = sellerSnapshot.child("address").getValue(String::class.java) ?: ""
-                    val phone = sellerSnapshot.child("phone").getValue(String::class.java) ?: ""
-                    val email = sellerSnapshot.child("email").getValue(String::class.java) ?: ""
-                    val photoUrl = sellerSnapshot.child("photoUrl").getValue(String::class.java) ?: ""
-                    val appType = sellerSnapshot.child("appType").getValue(String::class.java) ?: "Seller"
-                    val shopName = sellerSnapshot.child("shopName").getValue(String::class.java) ?: ""
-
-                    val seller = Seller(
-                        uid = sellerKey,
-                        name = name,
-                        phone = phone,
-                        email = email,
-                        address = address,
-                        appType = appType,
-                        photoUrl = photoUrl,
-                        shopName = shopName
-                    )
-
-                    // Fetch nested products - check "Products" (capital P) first, then "products"
-                    val productsMap = mutableMapOf<String, Product>()
-                    var productsSnapshot = sellerSnapshot.child("Products")
-                    if (!productsSnapshot.exists()) {
-                        productsSnapshot = sellerSnapshot.child("products")
+                    val sellerKey = sellerSnapshot.key ?: continue
+                    val seller = sellerSnapshot.getValue(Seller::class.java)?.copy(uid = sellerKey)
+                    if (seller != null) {
+                        shops.add(seller)
                     }
-                    
-                    for (productSnapshot in productsSnapshot.children) {
-                        try {
-                            // Always use manual mapping to handle string values for price/stock
-                            val name = productSnapshot.child("name").getValue(String::class.java) ?: ""
-                            
-                            // Price can be Double or String
-                            val priceValue = productSnapshot.child("price").getValue(Any::class.java)
-                            val price = when (priceValue) {
-                                is Double -> priceValue
-                                is Long -> priceValue.toDouble()
-                                is String -> priceValue.toDoubleOrNull() ?: 0.0
-                                is Number -> priceValue.toDouble()
-                                else -> 0.0
-                            }
-                            
-                            // Stock can be Int or String
-                            val stockValue = productSnapshot.child("stock").getValue(Any::class.java)
-                            val stock = when (stockValue) {
-                                is Int -> stockValue
-                                is Long -> stockValue.toInt()
-                                is String -> stockValue.toIntOrNull() ?: 0
-                                is Number -> stockValue.toInt()
-                                else -> 0
-                            }
-                            
-                            val photoUrl = productSnapshot.child("photoUrl").getValue(String::class.java)
-                                ?: productSnapshot.child("imageUrl").getValue(String::class.java) ?: ""
-                            
-                            val product = Product(
-                                productId = productSnapshot.key ?: "",
-                                sellerId = seller.uid,
-                                name = name,
-                                price = price,
-                                stock = stock,
-                                imageUrl = photoUrl
-                            )
-                            productsMap[product.productId] = product
-                        } catch (e: Exception) {
-                            Log.e("ShopsFragment", "Error processing product: ${e.message}", e)
-                            // Skip this product if there's an error
-                        }
-                    }
-                    seller.products = productsMap
-
-                    shops.add(seller)
                 }
-
-                if (!isAdded) return
 
                 if (shops.isEmpty()) {
                     tvEmpty.visibility = View.VISIBLE
@@ -167,16 +91,21 @@ class ShopsFragment : Fragment() {
                 } else {
                     tvEmpty.visibility = View.GONE
                     rvShops.visibility = View.VISIBLE
-                    shopAdapter.updateShops(ArrayList(shops))
+                    shopAdapter.updateShops(shops)
                 }
             }
 
             override fun onCancelled(error: DatabaseError) {
-                if (!isAdded || context == null || view == null) return
+                if (!isAdded) return
                 progressBar.visibility = View.GONE
                 tvEmpty.visibility = View.VISIBLE
                 Toast.makeText(context, "Failed to load shops: ${error.message}", Toast.LENGTH_SHORT).show()
             }
         })
+    }
+    
+    companion object {
+        const val REQUEST_KEY = "shopSelection"
+        const val BUNDLE_KEY = "selectedSeller"
     }
 }
