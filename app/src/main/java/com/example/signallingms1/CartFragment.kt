@@ -1,5 +1,8 @@
+
+// Defines the package this class belongs to.
 package com.example.signallingms1
 
+// Android and Java imports for UI, data handling, and system functions.
 import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
@@ -15,137 +18,144 @@ import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.database.FirebaseDatabase
-import java.text.SimpleDateFormat
-import java.util.*
 
+/**
+ * A Fragment that displays the contents of the user's shopping cart.
+ * This screen allows the user to view the items they have added, adjust quantities,
+ * remove items, select a delivery or pickup option, and finally, place an order.
+ * It interacts heavily with CartManager to manage the cart state and with Firebase
+ * for placing orders and fetching real-time data like stock and addresses.
+ */
 class CartFragment : Fragment() {
 
-    private lateinit var rvCart: RecyclerView
-    private lateinit var tvTotalPrice: TextView
-    private lateinit var tvDeliveryFee: TextView
-    private lateinit var tvGrandTotal: TextView
-    private lateinit var llDeliveryFee: View
-    private lateinit var tvEmpty: TextView
-    private lateinit var btnClearCart: Button
-    private lateinit var btnPlaceOrder: Button
-    private lateinit var rgDeliveryType: RadioGroup
-    private lateinit var rbDelivery: RadioButton
-    private lateinit var rbPickup: RadioButton
-    private lateinit var cartAdapter: CartAdapter
-    private val cartItems = mutableListOf<CartItem>()
-    private val auth = FirebaseAuth.getInstance()
-    private val database = FirebaseDatabase.getInstance()
-    
-    private var buyerAddress: String = ""
-    private var sellerAddresses = mutableMapOf<String, String>() // sellerId -> address
+    // --- UI View Variables ---
+    private lateinit var rvCart: RecyclerView // The list that displays cart items.
+    private lateinit var tvTotalPrice: TextView // Displays the subtotal of all items.
+    private lateinit var tvDeliveryFee: TextView // Displays the calculated delivery fee.
+    private lateinit var tvGrandTotal: TextView // Displays the final total (subtotal + delivery).
+    private lateinit var llDeliveryFee: View // The layout container for the delivery fee, can be hidden.
+    private lateinit var tvEmpty: TextView // A message shown when the cart is empty.
+    private lateinit var btnClearCart: Button // Button to remove all items from the cart.
+    private lateinit var btnPlaceOrder: Button // Button to finalize the purchase and create orders.
+    private lateinit var rgDeliveryType: RadioGroup // Group of radio buttons for choosing delivery or pickup.
+    private lateinit var rbDelivery: RadioButton // The radio button for selecting delivery.
+    private lateinit var rbPickup: RadioButton // The radio button for selecting pickup.
 
+    // --- Adapter and Data Variables ---
+    private lateinit var cartAdapter: CartAdapter // The adapter for the RecyclerView.
+    private val cartItems = mutableListOf<CartItem>() // The local list of cart items.
+
+    // --- Firebase and Address Variables ---
+    private val auth = FirebaseAuth.getInstance() // Firebase Authentication instance.
+    private val database = FirebaseDatabase.getInstance() // Firebase Realtime Database instance.
+    private var buyerAddress: String = "" // The current user's (buyer's) address.
+    private var sellerAddresses = mutableMapOf<String, String>() // A map to store seller addresses, keyed by sellerId.
+
+    /**
+     * Called to have the fragment instantiate its user interface view.
+     * This is where the layout for the fragment is inflated.
+     */
     override fun onCreateView(
         inflater: LayoutInflater,
         container: ViewGroup?,
         savedInstanceState: Bundle?
     ): View? {
+        // Inflate the layout XML file for this fragment.
         return inflater.inflate(R.layout.fragment_cart, container, false)
     }
 
+    /**
+     * Called immediately after onCreateView() has returned, but before any saved state has been restored in to the view.
+     * This is where UI elements are initialized and listeners are set up.
+     */
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
 
-        try {
-            if (!isAdded || context == null) return
+        // Find and assign all the UI views from the layout.
+        rvCart = view.findViewById(R.id.rvCart)
+        tvTotalPrice = view.findViewById(R.id.tvTotalPrice)
+        tvDeliveryFee = view.findViewById(R.id.tvDeliveryFee)
+        tvGrandTotal = view.findViewById(R.id.tvGrandTotal)
+        llDeliveryFee = view.findViewById(R.id.llDeliveryFee)
+        tvEmpty = view.findViewById(R.id.tvEmpty)
+        btnClearCart = view.findViewById(R.id.btnClearCart)
+        btnPlaceOrder = view.findViewById(R.id.btnPlaceOrder)
+        rgDeliveryType = view.findViewById(R.id.rgDeliveryType)
+        rbDelivery = view.findViewById(R.id.rbDelivery)
+        rbPickup = view.findViewById(R.id.rbPickup)
 
-            rvCart = view.findViewById(R.id.rvCart)
-            tvTotalPrice = view.findViewById(R.id.tvTotalPrice)
-            tvDeliveryFee = view.findViewById(R.id.tvDeliveryFee)
-            tvGrandTotal = view.findViewById(R.id.tvGrandTotal)
-            llDeliveryFee = view.findViewById(R.id.llDeliveryFee)
-            tvEmpty = view.findViewById(R.id.tvEmpty)
-            btnClearCart = view.findViewById(R.id.btnClearCart)
-            btnPlaceOrder = view.findViewById(R.id.btnPlaceOrder)
-            rgDeliveryType = view.findViewById(R.id.rgDeliveryType)
-            rbDelivery = view.findViewById(R.id.rbDelivery)
-            rbPickup = view.findViewById(R.id.rbPickup)
+        // Initialize the CartAdapter with callbacks for item interactions.
+        cartAdapter = CartAdapter(cartItems,
+            onQuantityChanged = { productId, sellerId, quantity ->
+                // When a user changes an item's quantity, fetch the latest stock info before updating.
+                fetchAndUpdateQuantity(productId, sellerId, quantity)
+            },
+            onItemRemoved = { productId ->
+                // When a user wants to remove an item, show a confirmation dialog first.
+                showRemoveItemConfirmationDialog(productId)
+            }
+        )
 
-            cartAdapter = CartAdapter(cartItems,
-                onQuantityChanged = { productId, sellerId, quantity ->
-                    if (isAdded && context != null) {
-                        // Fetch current stock from Firebase before updating
-                        fetchAndUpdateQuantity(productId, sellerId, quantity)
-                    }
-                },
-                onItemRemoved = { productId ->
-                    if (isAdded && context != null) {
-                        showRemoveItemConfirmationDialog(productId)
-                    }
-                }
-            )
+        // Set up the RecyclerView with a vertical layout manager and the adapter.
+        rvCart.layoutManager = LinearLayoutManager(requireContext())
+        rvCart.adapter = cartAdapter
 
-            rvCart.layoutManager = LinearLayoutManager(requireContext())
-            rvCart.adapter = cartAdapter
-
-            btnClearCart.setOnClickListener {
-                if (isAdded && context != null) {
-                    CartManager.clearCart(requireContext()) { success ->
-                        if (isAdded && context != null) {
-                            refreshCart()
-                            Toast.makeText(context, "Cart cleared", Toast.LENGTH_SHORT).show()
-                        }
-                    }
+        // Set a click listener for the "Clear Cart" button.
+        btnClearCart.setOnClickListener {
+            // Use CartManager to clear the cart and then refresh the UI.
+            CartManager.clearCart(requireContext()) { success ->
+                if (isAdded && context != null) { // Check if fragment is still active.
+                    refreshCart()
+                    Toast.makeText(context, "Cart cleared", Toast.LENGTH_SHORT).show()
                 }
             }
-
-            btnPlaceOrder.setOnClickListener {
-                placeOrder()
-            }
-            
-            // Listen to delivery type changes to recalculate delivery fee
-            rgDeliveryType.setOnCheckedChangeListener { _, _ ->
-                updateDeliveryFeeAndTotal()
-            }
-
-            // Delay refresh to ensure views are fully initialized
-            view.post {
-                refreshCart()
-            }
-        } catch (e: Exception) {
-            android.util.Log.e("CartFragment", "Error in onViewCreated: ${e.message}", e)
-            e.printStackTrace()
         }
+
+        // Set a click listener for the "Place Order" button.
+        btnPlaceOrder.setOnClickListener {
+            placeOrder()
+        }
+
+        // Add a listener to the delivery type radio group.
+        rgDeliveryType.setOnCheckedChangeListener { _, _ ->
+            // When the user switches between delivery and pickup, recalculate the total price.
+            updateDeliveryFeeAndTotal()
+        }
+
+        // Post the initial cart refresh to the view's message queue to ensure all views are initialized.
+        view.post { refreshCart() }
     }
 
+    /**
+     * Called when the fragment is visible to the user.
+     * Refreshes the cart to ensure it displays the most up-to-date information.
+     */
     override fun onResume() {
         super.onResume()
+        // A check to ensure the view is available before refreshing.
         if (isAdded && view != null) {
-            view?.post {
-                refreshCart()
-            }
+            view?.post { refreshCart() }
         }
     }
 
+    /**
+     * Refreshes the entire cart view.
+     * It loads items from CartManager, updates the UI to show or hide the empty cart message,
+     * recalculates all prices, and fetches necessary addresses for delivery fee calculation.
+     */
     private fun refreshCart() {
-        if (!isAdded || context == null || view == null) {
-            android.util.Log.w("CartFragment", "Cannot refresh cart - fragment not ready")
-            return
-        }
-        
+        // Safety check to prevent crashes if the fragment is not attached to a context.
+        if (!isAdded || context == null || view == null) return
+
         try {
-            // Check if adapter is initialized
-            if (!::cartAdapter.isInitialized) {
-                android.util.Log.w("CartFragment", "Adapter not initialized yet")
-                return
-            }
-            
+            // Load the current list of items from the CartManager.
             val items = CartManager.getCartItemsList(requireContext())
-            android.util.Log.d("CartFragment", "Cart items count: ${items.size}")
-            
-            if (items.isNotEmpty()) {
-                android.util.Log.d("CartFragment", "Cart items: ${items.map { "${it.productName} x${it.quantity}" }}")
-            }
-            
             cartItems.clear()
             cartItems.addAll(items)
 
+            // Check if the cart is empty.
             if (cartItems.isEmpty()) {
-                android.util.Log.d("CartFragment", "Cart is empty, showing empty message")
+                // If empty, show the "empty cart" message and hide the list and order buttons.
                 tvEmpty.visibility = View.VISIBLE
                 rvCart.visibility = View.GONE
                 rgDeliveryType.visibility = View.GONE
@@ -153,538 +163,325 @@ class CartFragment : Fragment() {
                 btnPlaceOrder.isEnabled = false
                 tvGrandTotal.text = "$0.00"
             } else {
-                android.util.Log.d("CartFragment", "Cart has ${cartItems.size} items, showing cart")
+                // If not empty, show the list and hide the empty message.
                 tvEmpty.visibility = View.GONE
                 rvCart.visibility = View.VISIBLE
                 rgDeliveryType.visibility = View.VISIBLE
                 btnPlaceOrder.isEnabled = true
             }
 
+            // Update the subtotal price display.
             val total = CartManager.getTotalPrice(requireContext())
-            android.util.Log.d("CartFragment", "Total price: $total")
             tvTotalPrice.text = "$${String.format("%.2f", total)}"
-            
-            // Update adapter
+
+            // Tell the adapter to update its data, which refreshes the RecyclerView.
             cartAdapter.updateCartItems(ArrayList(cartItems))
-            android.util.Log.d("CartFragment", "Adapter updated with ${cartAdapter.itemCount} items")
-            
-            // Load buyer and seller addresses for delivery fee calculation and update totals
+
+            // Asynchronously load buyer and seller addresses to calculate the delivery fee.
             loadAddressesForDeliveryFee()
         } catch (e: Exception) {
+            // Log any errors that occur during the refresh process.
             android.util.Log.e("CartFragment", "Error refreshing cart: ${e.message}", e)
-            e.printStackTrace()
         }
     }
 
+    /**
+     * Fetches the latest stock for a product from Firebase and then updates the quantity.
+     * This prevents a user from adding more items to the cart than are actually available.
+     */
     private fun fetchAndUpdateQuantity(productId: String, sellerId: String, quantity: Int) {
         if (!isAdded || context == null) return
-        
-        // Fetch current stock from Firebase - try "Products" first, then "products"
+
+        // Get a reference to the product in the Firebase database.
         val productsRef = database.getReference("Seller").child(sellerId).child("Products").child(productId)
         productsRef.get().addOnSuccessListener { snapshot ->
-            if (!isAdded || context == null) return@addOnSuccessListener
-            
             if (snapshot.exists()) {
-                try {
-                    // Get stock value (can be String or Int)
-                    val stockValue = snapshot.child("stock").getValue(Any::class.java)
-                    val currentStock = when (stockValue) {
-                        is Int -> stockValue
-                        is Long -> stockValue.toInt()
-                        is String -> stockValue.toIntOrNull() ?: 0
-                        is Number -> stockValue.toInt()
-                        else -> 0
-                    }
-                    
-                    // Update quantity with inventory update
-                    CartManager.updateQuantity(requireContext(), productId, quantity, currentStock) { success, message, newStock ->
-                        if (!isAdded || context == null) return@updateQuantity
-                        
+                // The stock value in Firebase could be a number or a string, so handle both.
+                val stockValue = snapshot.child("stock").getValue(Any::class.java)
+                val currentStock = when (stockValue) {
+                    is Int -> stockValue
+                    is Long -> stockValue.toInt()
+                    is String -> stockValue.toIntOrNull() ?: 0
+                    else -> 0
+                }
+
+                // Now, call CartManager to update the quantity, providing the fresh stock data.
+                CartManager.updateQuantity(requireContext(), productId, quantity, currentStock) { success, message, newStock ->
+                    if (isAdded && context != null) {
                         if (!success) {
-                            // Show stock alert dialog
+                            // If the update failed (e.g., not enough stock), show an alert.
                             showStockAlertDialog(productId, newStock ?: currentStock, quantity)
-                        } else {
-                            // Removed low stock warning - doesn't make sense for buyers
-                            Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
                         }
+                        // Always refresh the cart to show the final state.
                         refreshCart()
                     }
-                } catch (e: Exception) {
-                    android.util.Log.e("CartFragment", "Error fetching stock: ${e.message}", e)
-                    handleStockFetchFallback(productId, quantity)
                 }
             } else {
-                // Try lowercase "products"
-                val productsRefLower = database.getReference("Seller").child(sellerId).child("products").child(productId)
-                productsRefLower.get().addOnSuccessListener { snapshot2 ->
-                    if (!isAdded || context == null) return@addOnSuccessListener
-                    try {
-                        val stockValue = snapshot2.child("stock").getValue(Any::class.java)
-                        val currentStock = when (stockValue) {
-                            is Int -> stockValue
-                            is Long -> stockValue.toInt()
-                            is String -> stockValue.toIntOrNull() ?: 0
-                            is Number -> stockValue.toInt()
-                            else -> 0
-                        }
-                        CartManager.updateQuantity(requireContext(), productId, quantity, currentStock) { success, message, newStock ->
-                            if (!isAdded || context == null) return@updateQuantity
-                            
-                            if (!success) {
-                                // Show stock alert dialog
-                                val cartItem = CartManager.getCartItems(requireContext())[productId]
-                                val productName = cartItem?.productName ?: "Product"
-                                showStockAlertDialog(productId, newStock ?: currentStock, quantity)
-                            } else {
-                                // Removed low stock warning - doesn't make sense for buyers
-                                Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
-                            }
-                            refreshCart()
-                        }
-                    } catch (e: Exception) {
-                        android.util.Log.e("CartFragment", "Error fetching stock: ${e.message}", e)
-                        handleStockFetchFallback(productId, quantity)
-                    }
-                }.addOnFailureListener {
-                    handleStockFetchFallback(productId, quantity)
-                }
-            }
-        }.addOnFailureListener { error ->
-            if (isAdded && context != null) {
-                android.util.Log.e("CartFragment", "Failed to fetch stock: ${error.message}", error)
+                // If the product wasn't found, it might be an error or the user is offline.
+                // Fallback to updating without a stock check.
                 handleStockFetchFallback(productId, quantity)
             }
+        }.addOnFailureListener {
+            // If the database fetch fails, use the fallback.
+            handleStockFetchFallback(productId, quantity)
         }
     }
-    
+
+    /**
+     * A fallback method for when fetching live stock data from Firebase fails.
+     * It attempts to update the quantity without a real-time stock check.
+     * CartManager might still reject the change based on the stock info saved when the item was first added.
+     */
     private fun handleStockFetchFallback(productId: String, quantity: Int) {
         if (!isAdded || context == null) return
-        // Fallback - try to update without current stock
-        CartManager.updateQuantity(requireContext(), productId, quantity, null) { success, message, newStock ->
-            if (!isAdded || context == null) return@updateQuantity
-            if (!success) {
-                Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
+        // Attempt to update the quantity without providing a current stock value.
+        CartManager.updateQuantity(requireContext(), productId, quantity, null) { success, message, _ ->
+            if (isAdded && context != null) {
+                if (!success) {
+                    Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
+                }
+                refreshCart()
             }
-            refreshCart()
         }
     }
-    
+
+    /**
+     * Loads the buyer's address and the addresses of all unique sellers in the cart.
+     * This information is required to calculate the delivery fees accurately.
+     */
     private fun loadAddressesForDeliveryFee() {
-        if (!isAdded || context == null) return
-        
+        if (!isAdded || context == null || cartItems.isEmpty()) return
+
         val buyerId = auth.currentUser?.uid ?: return
-        if (cartItems.isEmpty()) return
-        
-        // Load buyer address - manually retrieve from snapshot for reliability
+
+        // 1. Fetch the buyer's address.
         database.getReference("Buyers").child(buyerId).get().addOnSuccessListener { buyerSnapshot ->
-            if (!isAdded || context == null) return@addOnSuccessListener
-            
-            // Manually get address field from Firebase (more reliable than deserialization)
             buyerAddress = buyerSnapshot.child("address").getValue(String::class.java) ?: ""
-            
-            android.util.Log.d("CartFragment", "Loaded buyer address: '$buyerAddress'")
-            
-            // Load seller addresses
+
+            // 2. Get a list of unique seller IDs from the cart.
             val uniqueSellerIds = cartItems.map { it.sellerId }.distinct()
             var loadedCount = 0
             val totalSellers = uniqueSellerIds.size
-            
+
             if (totalSellers == 0) {
-                // No sellers, update immediately with buyer address
+                // If there are no sellers, just update the totals (unlikely case).
                 updateDeliveryFeeAndTotal()
             } else {
+                // 3. For each unique seller, fetch their address.
                 uniqueSellerIds.forEach { sellerId ->
                     database.getReference("Seller").child(sellerId).get().addOnSuccessListener { sellerSnapshot ->
-                        if (!isAdded || context == null) return@addOnSuccessListener
-                        // Manually get address field
                         sellerAddresses[sellerId] = sellerSnapshot.child("address").getValue(String::class.java) ?: ""
                         loadedCount++
-                        
-                        android.util.Log.d("CartFragment", "Loaded seller $sellerId address: '${sellerAddresses[sellerId]}'")
-                        
+                        // 4. Once all seller addresses are loaded, update the delivery fee.
                         if (loadedCount == totalSellers) {
-                            // All addresses loaded, update delivery fee
                             updateDeliveryFeeAndTotal()
                         }
-                    }.addOnFailureListener { error ->
-                        android.util.Log.e("CartFragment", "Failed to load seller $sellerId address: ${error.message}")
+                    }.addOnFailureListener {
+                        // Even if one seller's address fails to load, continue.
                         loadedCount++
-                        // Continue even if one seller fails
                         if (loadedCount == totalSellers) {
                             updateDeliveryFeeAndTotal()
                         }
                     }
                 }
             }
-        }.addOnFailureListener { error ->
-            android.util.Log.e("CartFragment", "Failed to load buyer address: ${error.message}")
-            // Still try to update with empty address
+        }.addOnFailureListener {
+             // If buyer address fails to load, still proceed. The calculator will use a default.
             updateDeliveryFeeAndTotal()
         }
     }
-    
+
+    /**
+     * Calculates and displays the delivery fee and the grand total.
+     * This is called whenever the delivery type changes or when address data is loaded.
+     */
     private fun updateDeliveryFeeAndTotal() {
-        if (!isAdded || context == null || view == null) return
-        if (cartItems.isEmpty()) return
-        
+        if (!isAdded || context == null || view == null || cartItems.isEmpty()) return
+
         val subtotal = CartManager.getTotalPrice(requireContext())
         val isDelivery = rgDeliveryType.checkedRadioButtonId == rbDelivery.id
-        
-        android.util.Log.d("CartFragment", "updateDeliveryFeeAndTotal - isDelivery: $isDelivery, buyerAddress: '$buyerAddress'")
-        
+
         if (isDelivery) {
-            // Calculate delivery fee for each seller's order and sum them up
+            // If delivery is selected, calculate the fee.
             var totalDeliveryFee = 0.0
+            // Group items by seller, as each seller may have a different delivery fee.
             val ordersBySeller = cartItems.groupBy { it.sellerId }
-            
+
             ordersBySeller.forEach { (sellerId, items) ->
                 val orderSubtotal = items.sumOf { it.getTotalPrice() }
                 val sellerAddress = sellerAddresses[sellerId] ?: ""
-                
-                android.util.Log.d("CartFragment", "Calculating fee for seller $sellerId - orderAmount: $orderSubtotal, buyerAddress: '$buyerAddress'")
-                
+
+                // Use the DeliveryFeeCalculator utility to get the fee for this part of the order.
                 val deliveryFee = DeliveryFeeCalculator.calculateDeliveryFee(
                     orderAmount = orderSubtotal,
                     sellerAddress = sellerAddress,
                     buyerAddress = buyerAddress
                 )
-                
-                android.util.Log.d("CartFragment", "Delivery fee for seller $sellerId: $deliveryFee")
                 totalDeliveryFee += deliveryFee
             }
-            
-            // Display delivery fee (even if address is empty, calculator will default to $30)
+
+            // Update the UI to show the delivery fee and the new grand total.
             tvDeliveryFee.text = "$${String.format("%.2f", totalDeliveryFee)}"
             llDeliveryFee.visibility = View.VISIBLE
-            
-            // Update grand total
             val grandTotal = subtotal + totalDeliveryFee
             tvGrandTotal.text = "$${String.format("%.2f", grandTotal)}"
-            
-            android.util.Log.d("CartFragment", "Final delivery fee: $totalDeliveryFee, Grand total: $grandTotal")
         } else {
-            // Pickup selected - no delivery fee
+            // If pickup is selected, hide the delivery fee and set the grand total to be the same as the subtotal.
             llDeliveryFee.visibility = View.GONE
             tvGrandTotal.text = "$${String.format("%.2f", subtotal)}"
         }
     }
 
+    /**
+     * Initiates the order placement process.
+     * It groups items by seller and creates a separate order for each.
+     */
     private fun placeOrder() {
         if (!isAdded || context == null) return
-        
         val buyerId = auth.currentUser?.uid
+
+        // Basic checks before proceeding.
         if (buyerId == null) {
             Toast.makeText(context, "User not logged in", Toast.LENGTH_SHORT).show()
             return
         }
-
         if (cartItems.isEmpty()) {
             Toast.makeText(context, "Cart is empty", Toast.LENGTH_SHORT).show()
             return
         }
-        
-        // Disable place order button to prevent multiple submissions
+
+        // Disable the button to prevent multiple clicks while processing.
         btnPlaceOrder.isEnabled = false
-        
-        // Stock is already validated and decremented when items were added to cart
-        // Just proceed with order placement
-        android.util.Log.d("CartFragment", "Proceeding with order placement for ${cartItems.size} items...")
-        proceedWithOrderPlacement(buyerId, cartItems)
-    }
-    
-    private fun proceedWithOrderPlacement(buyerId: String, cartItems: List<CartItem>) {
-        // Group items by seller
+
+        // Group items by their seller, as each will become a separate order.
         val ordersBySeller = cartItems.groupBy { it.sellerId }
         var completedOrders = 0
-        var failedOrders = 0
-        val totalOrders = ordersBySeller.size
-        val orderErrors = mutableListOf<String>()
-        var confirmationShown = false
-        var firstSuccessfulOrder: Order? = null
-        var firstSellerName: String? = null
+        val totalOrderGroups = ordersBySeller.size
+        var allOrdersSuccessful = true
 
-        // Load buyer info
+        // Fetch buyer's profile information (name, address) to include in the order.
         database.getReference("Buyers").child(buyerId).get().addOnSuccessListener { buyerSnapshot ->
-            if (!isAdded || context == null) {
+            val buyer = buyerSnapshot.getValue(UserProfile::class.java)
+            if (buyer == null) {
+                showErrorDialog("Error", "Could not find your user profile.")
                 btnPlaceOrder.isEnabled = true
                 return@addOnSuccessListener
             }
-            
-            val buyer = buyerSnapshot.getValue(UserProfile::class.java)
-            val buyerName = buyer?.name ?: "Unknown"
-            val buyerAddress = buyer?.address ?: ""
 
-            // Create orders for each seller
+            // Loop through each group of items for each seller.
             ordersBySeller.forEach { (sellerId, items) ->
-                // Load seller info
+                // Fetch seller's info.
                 database.getReference("Seller").child(sellerId).get().addOnSuccessListener { sellerSnapshot ->
-                    if (!isAdded || context == null) return@addOnSuccessListener
-                    
                     val seller = sellerSnapshot.getValue(Seller::class.java)
-                    val sellerName = seller?.shopName?.ifEmpty { seller?.name } ?: "Unknown"
+                    val sellerName = seller?.shopName?.ifEmpty { seller.name } ?: "Unknown Seller"
 
-                    // Create order
-                    val orderId = database.getReference("Orders").push().key ?: run {
-                        failedOrders++
-                        completedOrders++
-                        if (completedOrders == totalOrders) {
-                            handleOrderCompletion(completedOrders, failedOrders, orderErrors)
-                        }
-                        return@addOnSuccessListener
-                    }
-                    
-                    val itemsMap = HashMap<String, CartItem>().apply {
-                        items.forEach { item ->
-                            put(item.productId, item)
-                        }
-                    }
-                    val totalPrice = items.sumOf { it.getTotalPrice() }
-                    
-                    // Get selected delivery type
-                    val selectedDeliveryType = if (rgDeliveryType.checkedRadioButtonId == rbDelivery.id) {
-                        "delivery"
-                    } else {
-                        "pickup"
-                    }
-                    
-                    // Calculate delivery fee if delivery is selected
-                    val deliveryFee = if (selectedDeliveryType == "delivery") {
-                        val sellerAddress = seller?.address ?: ""
-                        DeliveryFeeCalculator.calculateDeliveryFee(
-                            orderAmount = totalPrice,
-                            sellerAddress = sellerAddress,
-                            buyerAddress = buyerAddress
-                        )
-                    } else {
-                        0.0 // No delivery fee for pickup
-                    }
+                    // Create a new unique ID for this order.
+                    val orderId = database.getReference("Orders").push().key ?: return@addOnSuccessListener
+                    val itemsMap = HashMap<String, CartItem>().apply { items.forEach { put(it.productId, it) } }
+                    val subtotal = items.sumOf { it.getTotalPrice() }
+                    val deliveryType = if (rgDeliveryType.checkedRadioButtonId == rbDelivery.id) "delivery" else "pickup"
 
+                    // Calculate delivery fee for this specific seller's order.
+                    val deliveryFee = if (deliveryType == "delivery") {
+                        DeliveryFeeCalculator.calculateDeliveryFee(subtotal, seller?.address ?: "", buyer.address)
+                    } else { 0.0 }
+
+                    // Create the Order object.
                     val order = Order(
-                        orderId = orderId,
-                        buyerId = buyerId,
-                        sellerId = sellerId,
-                        items = itemsMap,
-                        totalPrice = totalPrice,
-                        status = "pending",
-                        timestamp = System.currentTimeMillis(),
-                        buyerName = buyerName,
-                        buyerAddress = buyerAddress,
-                        sellerName = sellerName,
-                        deliveryType = selectedDeliveryType,
-                        deliveryPrice = deliveryFee
+                        orderId, buyerId, sellerId, itemsMap, subtotal, "pending",
+                        System.currentTimeMillis(), buyer.name, buyer.address, sellerName, deliveryType, deliveryFee
                     )
 
-                    // Step 3: Save order first
-                    android.util.Log.d("CartFragment", "Saving order $orderId for seller $sellerId")
-                    database.getReference("Orders").child(orderId).setValue(order)
-                        .addOnSuccessListener {
-                            if (!isAdded || context == null) return@addOnSuccessListener
-                            
-                            android.util.Log.d("CartFragment", "Order $orderId saved successfully, updating inventory...")
-                            
-                            // Step 4: Inventory already decremented when items were added to cart
-                            // No need to decrement again - just mark order as completed
-                            completedOrders++
-                            android.util.Log.d("CartFragment", "Order $orderId saved successfully (inventory already updated on add to cart)")
-                            
-                            // Store first successful order for confirmation dialog
-                            if (!confirmationShown && failedOrders == 0) {
-                                firstSuccessfulOrder = order
-                                firstSellerName = sellerName
-                                confirmationShown = true
-                            }
-                            
-                            // Handle completion when all orders are processed
-                            if (completedOrders == totalOrders) {
-                                handleOrderCompletion(
-                                    completedOrders, 
-                                    failedOrders, 
-                                    orderErrors,
-                                    firstSuccessfulOrder,
-                                    firstSellerName
-                                )
+                    // Save the order to the "Orders" node in Firebase.
+                    database.getReference("Orders").child(orderId).setValue(order).addOnCompleteListener { task ->
+                        completedOrders++
+                        if (!task.isSuccessful) {
+                            allOrdersSuccessful = false
+                        }
+
+                        // After all order groups have been processed...
+                        if (completedOrders == totalOrderGroups) {
+                            // Re-enable the button.
+                            btnPlaceOrder.isEnabled = true
+                            if (allOrdersSuccessful) {
+                                // If everything worked, show a confirmation dialog.
+                                showOrderConfirmationDialog(order, sellerName)
+                                // Clear the cart, but DO NOT restore stock because the items have been sold.
+                                CartManager.clearCart(requireContext(), restoreStock = false) { refreshCart() }
+                            } else {
+                                showErrorDialog("Order Failed", "Some items could not be ordered. Please try again.")
                             }
                         }
-                        .addOnFailureListener { error ->
-                            if (!isAdded || context == null) return@addOnFailureListener
-                            
-                            completedOrders++
-                            failedOrders++
-                            orderErrors.add("Failed to save order for $sellerName: ${error.message}")
-                            android.util.Log.e("CartFragment", "Failed to save order: ${error.message}")
-                            
-                            if (completedOrders == totalOrders) {
-                                handleOrderCompletion(completedOrders, failedOrders, orderErrors)
-                            }
-                        }
-                }.addOnFailureListener { error ->
-                    if (!isAdded || context == null) return@addOnFailureListener
-                    
-                    completedOrders++
-                    failedOrders++
-                    orderErrors.add("Failed to load seller info: ${error.message}")
-                    
-                    if (completedOrders == totalOrders) {
-                        handleOrderCompletion(completedOrders, failedOrders, orderErrors)
                     }
                 }
             }
-        }.addOnFailureListener { error ->
-            if (!isAdded || context == null) {
-                btnPlaceOrder.isEnabled = true
-                return@addOnFailureListener
-            }
-            
-            btnPlaceOrder.isEnabled = true
-            showErrorDialog("Failed to place order", "Failed to load buyer information: ${error.message}")
-            android.util.Log.e("CartFragment", "Failed to load buyer info: ${error.message}")
         }
     }
-    
-    private fun handleOrderCompletion(
-        completedOrders: Int,
-        failedOrders: Int,
-        errors: List<String>,
-        firstSuccessfulOrder: Order? = null,
-        firstSellerName: String? = null
-    ) {
-        if (!isAdded || context == null) {
-            btnPlaceOrder.isEnabled = true
-            return
-        }
-        
-        btnPlaceOrder.isEnabled = true
-        
-        if (failedOrders == 0) {
-            // All orders placed successfully
-            android.util.Log.d("CartFragment", "All $completedOrders orders placed successfully")
-            
-            // Show confirmation dialog if we have order info
-            if (firstSuccessfulOrder != null && firstSellerName != null) {
-                showOrderConfirmationDialog(firstSuccessfulOrder, firstSellerName)
-            }
-            
-            // Clear cart WITHOUT restoring stock since order was successfully placed
-            CartManager.clearCart(requireContext(), restoreStock = false) { success ->
-                if (isAdded && context != null) {
-                    refreshCart()
-                }
-            }
-        } else {
-            // Some orders failed
-            val errorMessage = if (errors.size == 1) {
-                errors[0]
-            } else {
-                "Some orders could not be completed:\n" + errors.joinToString("\n") { "• $it" }
-            }
-            showErrorDialog("Order Placement Partially Failed", errorMessage)
-            android.util.Log.e("CartFragment", "Order placement completed with errors: $errors")
-            // Don't clear cart if there were errors, let user retry
-        }
-    }
-    
+
+
     /**
-     * Shows order confirmation alert dialog
+     * Shows a confirmation dialog after an order is successfully placed.
      */
     private fun showOrderConfirmationDialog(order: Order, sellerName: String) {
         if (!isAdded || context == null) return
-        
-        val orderIdShort = order.orderId.take(12)
-        val deliveryInfo = if (order.deliveryType.lowercase() == "pickup") {
-            "Pickup from $sellerName"
-        } else {
-            "Delivery to your address"
-        }
-        
-        val message = """
-            Order #$orderIdShort has been placed successfully!
-            
-            Seller: $sellerName
-            Total: $${String.format("%.2f", order.totalPrice + order.deliveryPrice)}
-            ${if (order.deliveryPrice > 0) "Delivery Fee: $${String.format("%.2f", order.deliveryPrice)}\n" else ""}
-            Delivery Method: ${deliveryInfo}
-            
-            You will receive notifications when your order status updates.
-        """.trimIndent()
-        
+
+        val message = "Your order from $sellerName has been placed successfully!"
+
         AlertDialog.Builder(requireContext())
             .setTitle("Order Confirmed! ✓")
             .setMessage(message)
             .setPositiveButton("View Orders") { _, _ ->
-                // Navigate to Orders tab
+                // Navigate to the Orders tab.
                 (activity as? HomeActivity)?.findViewById<androidx.viewpager2.widget.ViewPager2>(R.id.viewPager)?.currentItem = 3
             }
             .setNegativeButton("Continue Shopping", null)
-            .setIcon(android.R.drawable.ic_dialog_info)
-            .setCancelable(false)
             .show()
     }
-    
+
     /**
-     * Shows error alert dialog
+     * Shows a generic error dialog.
      */
     private fun showErrorDialog(title: String, message: String) {
         if (!isAdded || context == null) return
-        
         AlertDialog.Builder(requireContext())
             .setTitle(title)
             .setMessage(message)
             .setPositiveButton("OK", null)
-            .setIcon(android.R.drawable.ic_dialog_alert)
             .show()
     }
-    
+
     /**
-     * Shows stock alert dialog when insufficient stock
+     * Shows an alert when a user tries to add more of an item than is in stock.
      */
     private fun showStockAlertDialog(productId: String, availableStock: Int, requestedQuantity: Int) {
         if (!isAdded || context == null) return
-        
-        val cartItem = CartManager.getCartItems(requireContext())[productId]
-        val productName = cartItem?.productName ?: "Product"
-        
-        val message = when {
-            availableStock == 0 -> "$productName is currently out of stock. Please remove it from your cart or wait for restock."
-            else -> "Insufficient stock for $productName.\n\nAvailable: $availableStock\nRequested: $requestedQuantity\n\nOnly $availableStock available."
-        }
-        
+        val productName = CartManager.getCartItems(requireContext())[productId]?.productName ?: "Product"
+
+        val message = if (availableStock <= 0) "$productName is out of stock."
+                      else "Only $availableStock of $productName available."
+
         AlertDialog.Builder(requireContext())
             .setTitle("Stock Alert")
             .setMessage(message)
             .setPositiveButton("OK", null)
-            .setIcon(android.R.drawable.stat_notify_error)
             .show()
-        
-        // Removed low stock notification - doesn't make sense for buyers
     }
-    
+
     /**
-     * Shows confirmation dialog before removing item from cart
+     * Shows a confirmation dialog before removing an item from the cart.
      */
     private fun showRemoveItemConfirmationDialog(productId: String) {
         if (!isAdded || context == null) return
-        
-        val cartItem = CartManager.getCartItems(requireContext())[productId]
-        val productName = cartItem?.productName ?: "this item"
-        
+        val productName = CartManager.getCartItems(requireContext())[productId]?.productName ?: "this item"
+
         AlertDialog.Builder(requireContext())
             .setTitle("Remove Item")
             .setMessage("Are you sure you want to remove '$productName' from your cart?")
             .setPositiveButton("Remove") { _, _ ->
-                CartManager.removeFromCart(requireContext(), productId) { success ->
-                    if (isAdded && context != null) {
-                        if (success) {
-                            android.util.Log.d("CartFragment", "Stock restored for product $productId")
-                        } else {
-                            android.util.Log.w("CartFragment", "Failed to restore stock for product $productId")
-                        }
-                        refreshCart()
-                    }
-                }
+                // If confirmed, remove the item using CartManager and refresh the cart.
+                CartManager.removeFromCart(requireContext(), productId) { refreshCart() }
             }
             .setNegativeButton("Cancel", null)
-            .setIcon(android.R.drawable.ic_menu_delete)
             .show()
     }
 }
-
